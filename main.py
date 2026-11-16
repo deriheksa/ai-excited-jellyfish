@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Ship the ai-excited-01 entry picture to the harness output folder.
+"""Deliver the ai-excited-01 entry image to the harness output directory.
 
-The picture in this repository is a watercolor and ink phoenix: the
-bird is painted in gold, orange and red washes with dark ink outlines,
-bursting straight out of a large gilt-framed watercolor painting toward
-the viewer, head-on. The frame is shattered, ink and paint splash
-around it, and two tiny students crouch below with their hands over
-their heads. The wall behind is plain and dark, and the picture holds
-no writing of any kind.
+The image this repository ships is a watercolor and ink phoenix: gold,
+orange and red washes with dark ink outlines, bursting head-on out of
+a large gilt-framed watercolor painting straight at the viewer. The
+frame is genuinely broken — its bottom rail is missing across the
+middle, with jagged ends, and the phoenix's tail comes through that
+open gap while the other three sides stay whole. Two tiny students
+duck below with their hands over their heads, the wall behind is plain
+and dark, and there is no writing of any kind in the picture.
 
-This program first makes sure the picture on disk is exactly the file
-the entry was built from, then copies it to the output folder. It
-checks the byte count, the SHA-256 digest, and the JPEG opening bytes;
-if any of them is wrong it stops with an error and writes nothing.
+Before it writes anything, this script proves the file on disk is
+exactly the image the entry was made from: it checks the JPEG opening
+bytes, the byte count, and the SHA-256 digest, and refuses to continue
+if any of them differs.
 """
 
 import hashlib
@@ -20,41 +21,41 @@ import os
 import sys
 from pathlib import Path
 
-IMAGE_NAME = "entry.png"
-IMAGE_BYTES = 229818
-IMAGE_SHA256 = "f2299540776ebc9e7d531c0724f628201016d4ddff5edb7c43c475d53f2d4a35"
-JPEG_MAGIC = b"\xff\xd8\xff"
-DEFAULT_OUT = "/output"
+PICTURE = "entry.png"
+EXPECTED_LENGTH = 201965
+EXPECTED_DIGEST = "b1819d1a5509c0d2136b47898e9800d519de071963c0142fa81d364e42258ab7"
+JPEG_HEAD = b"\xff\xd8\xff"
+FALLBACK_OUT = "/output"
 
 
-def abort(message):
-    """Report a bad picture and stop without writing output."""
-    print(f"entry rejected: {message}", file=sys.stderr)
+def fail(reason):
+    """Print why the picture is wrong and stop without writing output."""
+    print(f"bad entry picture: {reason}", file=sys.stderr)
     sys.exit(1)
 
 
-def checked_picture():
-    """Load entry.png and prove it is the exact entry picture."""
-    here = Path(__file__).resolve().parent
-    blob = (here / IMAGE_NAME).read_bytes()
+def load_picture():
+    """Read entry.png next to this script and check it three ways."""
+    folder = Path(__file__).resolve().parent
+    data = (folder / PICTURE).read_bytes()
 
-    if len(blob) != IMAGE_BYTES:
-        abort(f"entry.png is {len(blob)} bytes, expected {IMAGE_BYTES}")
-    digest = hashlib.sha256(blob).hexdigest()
-    if digest != IMAGE_SHA256:
-        abort(f"entry.png hashes to {digest}, expected {IMAGE_SHA256}")
-    if blob[:3] != JPEG_MAGIC:
-        abort("entry.png does not start with the JPEG marker")
-    return blob, digest
+    if data[:3] != JPEG_HEAD:
+        fail("entry.png does not open with the JPEG marker")
+    if len(data) != EXPECTED_LENGTH:
+        fail(f"entry.png is {len(data)} bytes, not {EXPECTED_LENGTH}")
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != EXPECTED_DIGEST:
+        fail(f"entry.png digests to {digest}, not {EXPECTED_DIGEST}")
+    return data, digest
 
 
 def main():
-    blob, digest = checked_picture()
-    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", DEFAULT_OUT))
-    out_dir.mkdir(parents=True, exist_ok=True)
-    target = out_dir / IMAGE_NAME
-    target.write_bytes(blob)
-    print(f"copied {target} ({len(blob)} bytes, sha256 {digest})")
+    data, digest = load_picture()
+    destination = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", FALLBACK_OUT))
+    destination.mkdir(parents=True, exist_ok=True)
+    written = destination / PICTURE
+    written.write_bytes(data)
+    print(f"wrote {written} ({len(data)} bytes, sha256 {digest})")
 
 
 if __name__ == "__main__":
