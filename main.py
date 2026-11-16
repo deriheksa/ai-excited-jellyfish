@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Deliver the ai-excited-01 picture to the harness output folder.
+"""Ship the ai-excited-01 entry picture to the harness output directory.
 
-The picture shipped with this entry is entry.png. The extension is a
-hangover from the harness convention — the bytes are a JPEG. It shows a
-giant phoenix of living flame bursting out of a gilt-framed sunrise
-painting on a classroom wall: the frame is smashed, splinters, embers
-and burning feathers are flying everywhere, and four small students
-below duck under their desks with their hands on their heads.
+The bundled picture is entry.png. The name follows the harness
+convention; the bytes inside are a JPEG. It shows a phoenix made of
+living flame tearing out of a gilt-framed sunrise painting on a
+classroom wall. The frame is smashed, splinters and burning feathers
+fly in every direction, and four small students below duck under their
+desks with their hands over their heads. A chalkboard reads
+"Pop Quiz: Myths POSTPONED!".
 
-This program has a single, strict chore. It loads the bundled picture,
-checks that it is bit-for-bit the picture this entry was built from —
-correct JPEG opening marker, correct byte count, correct SHA-256 —
-and only then copies it to the harness output directory, still named
-entry.png. Anything that fails a check stops the run with an error and
-no output file is written.
+This script does one guarded job: it reads the bundled picture,
+proves it is exactly the picture this entry was built from, and only
+then places a copy in the harness output directory under the same
+name. The checks are the JPEG opening marker, the exact byte length,
+and the exact SHA-256 digest. If any check fails, the script prints
+what went wrong, exits with a failure status, and writes nothing.
 """
 
 import hashlib
@@ -21,35 +22,41 @@ import os
 import sys
 from pathlib import Path
 
-PICTURE = "entry.png"
-EXPECTED_SIZE = 225418
-EXPECTED_DIGEST = "300702fb686884e3846a19dcbc75276c065c6a46800fcd840ee6a210a8ca4bed"
-JPEG_PREFIX = b"\xff\xd8\xff"
-FALLBACK_OUT = "/output"
+SOURCE_NAME = "entry.png"
+WANT_BYTES = 225418
+WANT_SHA256 = "300702fb686884e3846a19dcbc75276c065c6a46800fcd840ee6a210a8ca4bed"
+JPEG_MAGIC = b"\xff\xd8\xff"
+DEFAULT_OUTPUT = "/output"
 
 
-def die(reason):
-    print(f"picture check failed: {reason}", file=sys.stderr)
-    sys.exit(1)
+def abort(problem):
+    """Report a failed check and stop without writing anything."""
+    print(f"entry check failed: {problem}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def checked_picture():
+    """Load the bundled picture and prove it is the expected one."""
+    here = Path(__file__).resolve().parent
+    blob = (here / SOURCE_NAME).read_bytes()
+
+    if len(blob) != WANT_BYTES:
+        abort(f"bundled picture is {len(blob)} bytes, expected {WANT_BYTES}")
+    if blob[: len(JPEG_MAGIC)] != JPEG_MAGIC:
+        abort("bundled picture does not start with the JPEG marker")
+    digest = hashlib.sha256(blob).hexdigest()
+    if digest != WANT_SHA256:
+        abort(f"bundled picture hashes to {digest}, expected {WANT_SHA256}")
+    return blob, digest
 
 
 def main():
-    folder = Path(__file__).resolve().parent
-    data = (folder / PICTURE).read_bytes()
-
-    if data[:3] != JPEG_PREFIX:
-        die("the bundled file is not a JPEG (bad opening bytes)")
-    if len(data) != EXPECTED_SIZE:
-        die(f"the bundled file is {len(data)} bytes, not {EXPECTED_SIZE}")
-    digest = hashlib.sha256(data).hexdigest()
-    if digest != EXPECTED_DIGEST:
-        die(f"the bundled file hashes to {digest}, not {EXPECTED_DIGEST}")
-
-    destination = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", FALLBACK_OUT))
-    destination.mkdir(parents=True, exist_ok=True)
-    written = destination / PICTURE
-    written.write_bytes(data)
-    print(f"wrote {written} ({len(data)} bytes, sha256 {digest})")
+    blob, digest = checked_picture()
+    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", DEFAULT_OUTPUT))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    target = out_dir / SOURCE_NAME
+    target.write_bytes(blob)
+    print(f"wrote {target} ({len(blob)} bytes, sha256 {digest})")
 
 
 if __name__ == "__main__":
