@@ -1,84 +1,55 @@
 #!/usr/bin/env python3
-"""Deliver the ai-excited-01 picture to the harness output directory.
+"""Hand the ai-excited-01 picture to the harness.
 
-The artwork lives in this repository as entry.png. Although the name
-ends in .png, the bytes are a JPEG (see the leading marker below). The
-scene: a huge translucent jellyfish smashing up through the surface of
-a flooded rice terrace at dusk, spray and droplets flying everywhere,
-while five small farmers underneath throw their arms in the air.
+The picture bundled with this entry is entry.png. The name is a
+leftover: the bytes inside are a JPEG. It shows a giant grey-brown
+elephant smashing out of a huge gilt-framed savanna painting in a dark
+museum hall — the frame splintering apart, wood and torn canvas flying
+— while four tiny visitors underneath duck and throw their hands up.
 
-This script is deliberately boring. It loads the bundled picture,
-checks that it is bit-for-bit the picture we built — correct opening
-bytes, correct length, correct SHA-256 fingerprint — and only then
-writes those exact bytes out as /output/entry.png. Anything unexpected
-about the bundled file makes the script abort with an error instead of
-handing the harness a wrong or damaged image.
+The script does one dull job and does it strictly. It reads the
+bundled picture, proves it is exactly the file this entry was built
+from (right opening bytes, right length, right SHA-256), and only then
+copies those bytes to the harness output folder as entry.png. If the
+bundled file is anything else — wrong, truncated, swapped — the script
+stops with an error and writes nothing.
 """
-
-from __future__ import annotations
 
 import hashlib
 import os
 import sys
 from pathlib import Path
 
-# Facts about the picture bundled in this repository.
-PICTURE_NAME = "entry.png"
-PICTURE_SIZE = 201933
-PICTURE_SHA256 = "3867c080df3e8ab741dd92d78d3054617394fa2cc60d1ddb10f335d0e9157941"
-JPEG_START = bytes((0xFF, 0xD8, 0xFF))
-FALLBACK_OUTPUT_DIR = "/output"
+FILENAME = "entry.png"
+WANTED_BYTES = 170537
+WANTED_SHA256 = "bf0c7a0d989e65325762e9b162647dd50f8dc29645fbcc561cb4d7ac8590d960"
+JPEG_OPENING = b"\xff\xd8\xff"
+DEFAULT_OUT = "/output"
 
 
-class PictureMismatch(Exception):
-    """The bundled picture is not the exact file this entry is built on."""
+def fail(message):
+    print(f"entry.png rejected: {message}", file=sys.stderr)
+    sys.exit(1)
 
 
-def load_picture() -> bytes:
-    """Read the bundled picture next to this script."""
-    picture_path = Path(__file__).resolve().parent / PICTURE_NAME
-    try:
-        return picture_path.read_bytes()
-    except OSError as exc:
-        raise PictureMismatch(f"could not read {picture_path}: {exc}") from exc
+def main():
+    here = Path(__file__).resolve().parent
+    blob = (here / FILENAME).read_bytes()
 
+    if blob[:3] != JPEG_OPENING:
+        fail("the file does not start with the JPEG marker")
+    if len(blob) != WANTED_BYTES:
+        fail(f"the file is {len(blob)} bytes, expected {WANTED_BYTES}")
+    digest = hashlib.sha256(blob).hexdigest()
+    if digest != WANTED_SHA256:
+        fail(f"sha256 {digest} does not match {WANTED_SHA256}")
 
-def check_picture(data: bytes) -> str:
-    """Confirm the picture is the exact one we expect; return its hash."""
-    if data[:3] != JPEG_START:
-        raise PictureMismatch("picture does not begin with the JPEG marker")
-    if len(data) != PICTURE_SIZE:
-        raise PictureMismatch(
-            f"picture is {len(data)} bytes, but {PICTURE_SIZE} were expected"
-        )
-    fingerprint = hashlib.sha256(data).hexdigest()
-    if fingerprint != PICTURE_SHA256:
-        raise PictureMismatch(
-            f"picture sha256 {fingerprint} does not match {PICTURE_SHA256}"
-        )
-    return fingerprint
-
-
-def write_picture(data: bytes) -> Path:
-    """Write the checked bytes to the harness output directory."""
-    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", FALLBACK_OUTPUT_DIR))
+    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", DEFAULT_OUT))
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / PICTURE_NAME
-    out_path.write_bytes(data)
-    return out_path
-
-
-def run() -> int:
-    try:
-        data = load_picture()
-        fingerprint = check_picture(data)
-        out_path = write_picture(data)
-    except PictureMismatch as exc:
-        print(f"entry check failed: {exc}", file=sys.stderr)
-        return 1
-    print(f"wrote {out_path} ({len(data)} bytes, sha256 {fingerprint})")
-    return 0
+    target = out_dir / FILENAME
+    target.write_bytes(blob)
+    print(f"wrote {target} ({len(blob)} bytes, sha256 {digest})")
 
 
 if __name__ == "__main__":
-    raise SystemExit(run())
+    main()
