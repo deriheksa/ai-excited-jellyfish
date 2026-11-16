@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""Deliver the ai-excited-01 picture to the output directory.
+"""Ship the ai-excited-01 picture to the output folder.
 
-The picture is a watercolor-and-ink phoenix that bursts straight
-toward the viewer out of a gilt-framed painting of a sky. Its wings
-are spread so wide they have torn clean through the frame's left and
-right sides: those two rails are gone entirely, so behind the wings
-there is only the dark wall, with broken stubs and splinters at the
-corners where the rails used to be. The top and bottom rails are
-still whole, and the bird's tail stays inside the painting. Two
-small students crouch below with their hands over their heads, the
-wall is plain and dark, and there is no writing anywhere in it.
+The picture is the user's own black hole: a swirling black-hole
+vortex has opened in the middle of a bright, sunlit room and is
+pulling the furniture into it — a red leather armchair, a lamp,
+books, a small wooden table, a blue-and-white vase with red roses,
+rose petals flying everywhere. A framed landscape painting hangs
+on the wall at the top right and a big arched window lets sunlight
+in from the left. One thing dominates the frame: the black hole
+itself, a dark circle ringed with gold. Nothing is written anywhere
+in the picture, and nothing was added to it — it is the user's
+image, only shrunk and re-encoded to fit the bounty limits.
 
-Before it writes anything, this script proves the picture next to
-it is exactly the one the entry was made from, by its length, its
-JPEG opening bytes, and its SHA-256. If any of those disagree, it
-stops and writes nothing.
+This script makes sure the picture sitting next to it is exactly
+the shipped one, by its byte count, its JPEG opening marker, and
+its SHA-256. If any of those three is off, it refuses to write
+anything and quits with an error.
 """
 
 import hashlib
@@ -22,41 +23,41 @@ import os
 import sys
 from pathlib import Path
 
-PICTURE = "entry.png"
-EXPECTED_LENGTH = 214819
-EXPECTED_HASH = "ea0add6982293c05dfea397b590d09a975a5c7c62777887b9c9ee7b05cc0c335"
-JPEG_HEAD = b"\xff\xd8\xff"
-FALLBACK_DIR = "/output"
+FILENAME = "entry.png"
+BYTE_COUNT = 268521
+DIGEST = "87f5e1bf5bbb3ddabe05b4a3846f188d232344847418afbbfc5fe23ca83867e6"
+JPEG_START = b"\xff\xd8\xff"
+DEFAULT_OUT = "/output"
 
 
-def fail(reason):
-    """Complain about a picture that does not match, then quit."""
-    print(f"picture does not match: {reason}", file=sys.stderr)
+def abort(why):
+    """Report a mismatch and stop before writing anything."""
+    print(f"entry picture mismatch: {why}", file=sys.stderr)
     sys.exit(1)
 
 
-def load_picture():
-    """Read entry.png beside this file and check it three ways."""
-    folder = Path(__file__).resolve().parent
-    data = (folder / PICTURE).read_bytes()
+def checked_bytes():
+    """Load entry.png beside this script and confirm it three ways."""
+    here = Path(__file__).resolve().parent
+    blob = (here / FILENAME).read_bytes()
 
-    if data[:3] != JPEG_HEAD:
-        fail("entry.png does not open with the JPEG marker")
-    if len(data) != EXPECTED_LENGTH:
-        fail(f"entry.png is {len(data)} bytes, not {EXPECTED_LENGTH}")
-    hashed = hashlib.sha256(data).hexdigest()
-    if hashed != EXPECTED_HASH:
-        fail(f"entry.png hashes to {hashed}, not {EXPECTED_HASH}")
-    return data, hashed
+    if len(blob) != BYTE_COUNT:
+        abort(f"entry.png is {len(blob)} bytes, expected {BYTE_COUNT}")
+    if blob[:3] != JPEG_START:
+        abort("entry.png does not start with the JPEG marker")
+    digest = hashlib.sha256(blob).hexdigest()
+    if digest != DIGEST:
+        abort(f"entry.png sha256 is {digest}, expected {DIGEST}")
+    return blob, digest
 
 
 def main():
-    picture, hashed = load_picture()
-    where = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", FALLBACK_DIR))
-    where.mkdir(parents=True, exist_ok=True)
-    done = where / PICTURE
-    done.write_bytes(picture)
-    print(f"wrote {done} ({len(picture)} bytes, sha256 {hashed})")
+    blob, digest = checked_bytes()
+    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", DEFAULT_OUT))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    target = out_dir / FILENAME
+    target.write_bytes(blob)
+    print(f"copied {target} ({len(blob)} bytes, sha256 {digest})")
 
 
 if __name__ == "__main__":
