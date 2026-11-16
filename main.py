@@ -3,8 +3,8 @@
 
 The picture is baked into this repo as entry.png. It is a JPEG by its
 first bytes (the name stays entry.png, per the rules): a giant glowing
-glass jellyfish floating low over terraced rice fields at dusk, tiny
-farmers looking up from below.
+glass jellyfish bursting out of a flooded rice terrace at dusk, water
+exploding around it, tiny farmers below with their arms thrown up.
 
 This program does one job and nothing else. It reads entry.png, proves
 it is exactly the file we built — right magic bytes, right byte count,
@@ -20,8 +20,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-EXPECTED_BYTES = 231036
-EXPECTED_SHA256 = "90d935bb259f8fd8157971cdb6e816b25d0beac29d2039598bed9402abc2e019"
+EXPECTED_BYTES = 201933
+EXPECTED_SHA256 = "3867c080df3e8ab741dd92d78d3054617394fa2cc60d1ddb10f335d0e9157941"
 JPEG_SOI = b"\xff\xd8\xff"
 
 
